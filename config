@@ -1,0 +1,115 @@
+# Copyright (c) 2011-2012, Simpl <foss@simpl.it>
+# Copyright (c) 2011-2012, FRiCKLE <info@frickle.com>
+# Copyright (c) 2011-2012, Piotr Sikora <piotr.sikora@frickle.com>
+# All rights reserved.
+#
+# This project was fully funded by Simpl (www.simpl.it) for use on
+# the open-source website Tagmata (www.tagmata.com).
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+# HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+NGX_VERSION=`grep nginx_version src/core/nginx.h | sed -e 's/^.* \(.*\)$/\1/'`
+if [ -z "$NGX_VERSION" -o "$NGX_VERSION" -lt 1001004 ]; then
+    echo "$0: error: ngx_mongo module requires nginx-1.1.4+."
+    exit 1
+fi
+
+if ! `grep "NGX_HAVE_LITTLE_ENDIAN  1" $NGX_AUTO_CONFIG_H >/dev/null 2>&1`; then
+    echo "$0: error: ngx_mongo module works only on little endian platforms."
+    exit 1
+fi
+
+ngx_feature_name=
+ngx_feature_run=no
+ngx_feature_incs="#include <yajl/yajl_parse.h>"
+ngx_feature_test="(void) yajl_alloc(NULL, NULL, NULL)"
+
+if [ -n "$LIBYAJL_INC" -o -n "$LIBYAJL_LIB" ]; then
+    # specified by LIBYAJL_INC and LIBYAJL_LIB
+    ngx_feature="yajl library in directories specified by LIBYAJL_INC ($LIBYAJL_INC) and LIBYAJL_LIB ($LIBYAJL_LIB)"
+    ngx_feature_path="$LIBYAJL_INC"
+    if [ $NGX_RPATH = YES ]; then
+        ngx_feature_libs="-R$LIBYAJL_LIB -L$LIBYAJL_LIB -lyajl"
+    else
+        ngx_feature_libs="-L$LIBYAJL_LIB -lyajl"
+    fi
+    . auto/feature
+else
+    # auto-discovery
+    ngx_feature="yajl library"
+    ngx_feature_path=
+    ngx_feature_libs="-lyajl"
+    . auto/feature
+
+    if [ $ngx_found = no ]; then
+        # FreeBSD, OpenBSD
+        ngx_feature="yajl library in /usr/local/"
+        ngx_feature_path="/usr/local/include"
+        if [ $NGX_RPATH = YES ]; then
+            ngx_feature_libs="-R/usr/local/lib -L/usr/local/lib -lyajl"
+        else
+            ngx_feature_libs="-L/usr/local/lib -lyajl"
+        fi
+        . auto/feature
+    fi
+
+    if [ $ngx_found = no ]; then
+        # NetBSD
+        ngx_feature="yajl library in /usr/pkg/"
+        ngx_feature_path="/usr/pkg/include"
+        if [ $NGX_RPATH = YES ]; then
+            ngx_feature_libs="-R/usr/pkg/lib -L/usr/pkg/lib -lyajl"
+        else
+            ngx_feature_libs="-L/usr/pkg/lib -lyajl"
+        fi
+        . auto/feature
+    fi
+
+    if [ $ngx_found = no ]; then
+        # MacPorts
+        ngx_feature="yajl library in /opt/local/"
+        ngx_feature_path="/opt/local/include"
+        if [ $NGX_RPATH = YES ]; then
+            ngx_feature_libs="-R/opt/local/lib -L/opt/local/lib -lyajl"
+        else
+            ngx_feature_libs="-L/opt/local/lib -lyajl"
+        fi
+        . auto/feature
+    fi
+fi
+
+if [ $ngx_found = no ]; then
+   echo "$0: error: ngx_mongo module requires libyajl."
+   exit 1
+fi
+
+ngx_addon_name="ngx_http_mongo_module"
+
+USE_MD5=YES
+
+CORE_INCS="$CORE_INCS $ngx_feature_path"
+CORE_LIBS="$CORE_LIBS $ngx_feature_libs"
+
+HTTP_MODULES="$HTTP_MODULES ngx_http_mongo_module"
+NGX_ADDON_SRCS="$NGX_ADDON_SRCS $ngx_addon_dir/src/ngx_http_mongo_module.c"
+
+have=NGX_HTTP_MONGO_MODULE . auto/have
