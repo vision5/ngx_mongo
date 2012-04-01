@@ -296,6 +296,20 @@ static ngx_command_t  ngx_http_mongo_commands[] = {
       offsetof(ngx_http_mongo_loc_conf_t, upstream.buffer_size),
       NULL },
 
+    { ngx_string("mongo_buffers"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE2,
+      ngx_conf_set_bufs_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_mongo_loc_conf_t, upstream.bufs),
+      NULL },
+
+    { ngx_string("mongo_busy_buffers_size"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_size_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_mongo_loc_conf_t, upstream.busy_buffers_size_conf),
+      NULL },
+
     { ngx_string("mongo_next_upstream"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_1MORE,
       ngx_conf_set_bitmask_slot,
@@ -2084,13 +2098,12 @@ ngx_http_mongo_create_loc_conf(ngx_conf_t *cf)
 
     conf->upstream.buffering = NGX_CONF_UNSET;
     conf->upstream.buffer_size = NGX_CONF_UNSET_SIZE;
+    conf->upstream.busy_buffers_size_conf = NGX_CONF_UNSET_SIZE;
 
     /* the hardcoded values */
     conf->upstream.cyclic_temp_file = 0;
     conf->upstream.ignore_client_abort = 0;
     conf->upstream.send_lowat = 0;
-    conf->upstream.bufs.num = 0;
-    conf->upstream.busy_buffers_size = 0;
     conf->upstream.max_temp_file_size = 0;
     conf->upstream.temp_file_write_size = 0;
     conf->upstream.intercept_errors = 1;
@@ -2107,6 +2120,7 @@ ngx_http_mongo_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 {
     ngx_http_mongo_loc_conf_t  *prev = parent;
     ngx_http_mongo_loc_conf_t  *conf = child;
+    size_t                      size;
 
     ngx_conf_merge_msec_value(conf->upstream.connect_timeout,
                               prev->upstream.connect_timeout, 60000);
@@ -2123,6 +2137,50 @@ ngx_http_mongo_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_size_value(conf->upstream.buffer_size,
                               prev->upstream.buffer_size,
                               (size_t) ngx_pagesize);
+
+    ngx_conf_merge_bufs_value(conf->upstream.bufs, prev->upstream.bufs,
+                              8, ngx_pagesize);
+
+    if (conf->upstream.bufs.num < 2) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "there must be at least 2 \"mongo_buffers\"");
+        return NGX_CONF_ERROR;
+    }
+
+    size = conf->upstream.buffer_size;
+    if (size < conf->upstream.bufs.size) {
+        size = conf->upstream.bufs.size;
+    }
+
+    ngx_conf_merge_size_value(conf->upstream.busy_buffers_size_conf,
+                              prev->upstream.busy_buffers_size_conf,
+                              NGX_CONF_UNSET_SIZE);
+
+    if (conf->upstream.busy_buffers_size_conf == NGX_CONF_UNSET_SIZE) {
+        conf->upstream.busy_buffers_size = 2 * size;
+    } else {
+        conf->upstream.busy_buffers_size =
+                                         conf->upstream.busy_buffers_size_conf;
+    }
+
+    if (conf->upstream.busy_buffers_size < size) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+             "\"mongo_busy_buffers_size\" must be equal or bigger than "
+             "maximum of the value of \"mongo_buffer_size\" and "
+             "one of the \"mongo_buffers\"");
+
+        return NGX_CONF_ERROR;
+    }
+
+    if (conf->upstream.busy_buffers_size
+        > (conf->upstream.bufs.num - 1) * conf->upstream.bufs.size)
+    {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+             "\"mongo_busy_buffers_size\" must be less than "
+             "the size of all \"mongo_buffers\" minus one buffer");
+
+        return NGX_CONF_ERROR;
+    }
 
     ngx_conf_merge_bitmask_value(conf->upstream.next_upstream,
                                  prev->upstream.next_upstream,
