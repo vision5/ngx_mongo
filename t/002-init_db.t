@@ -5,7 +5,7 @@ use Test::Nginx::Socket;
 
 repeat_each(1);
 
-plan tests => repeat_each() * (blocks() * 1 + 2 * 3);
+plan tests => repeat_each() * (blocks() * 1 + 3 * 3);
 
 $ENV{TEST_NGINX_MONGODB_HOST} ||= '127.0.0.1';
 $ENV{TEST_NGINX_MONGODB_PORT} ||= 27017;
@@ -124,7 +124,7 @@ Content-Type: application/json
 
 
 
-=== TEST 8: insert (dynamic query - BSON in request body)
+=== TEST 8: insert (dynamic query - 2x BSON in request body)
 --- http_config eval: $::http_config
 --- config
     location /mongo {
@@ -148,6 +148,13 @@ Content-Type: application/json
 "2\x{00}".                                           # "2"
 "\x{c2}\x{07}\x{00}\x{00}".                          # 1986
 "\x{00}".                                            # array/document end
+"\x{00}".                                            # document end
+"\x{18}\x{00}\x{00}\x{00}".                          # document length
+"\x{05}".                                            # binary
+"binary\x{00}".                                      # "binary"
+"\x{06}\x{00}\x{00}\x{00}".                          # "BINARY" length
+"\x{00}".                                            # binary subtype - generic
+"BINARY".                                            # "BINARY"
 "\x{00}"                                             # document end
 --- more_headers
 Content-Type: application/x-bson
@@ -217,8 +224,14 @@ X-Mongo-Query: {"$query": {}, "$orderby": {"$natural": 1}}
 "2\x{00}".                                           # "2"
 "\x{c2}\x{07}\x{00}\x{00}".                          # 1986
 "\x{00}".                                            # array/document end
+"\x{00}".                                            # document end
+"\x{18}\x{00}\x{00}\x{00}".                          # document length
+"\x{05}".                                            # binary
+"binary\x{00}".                                      # "binary"
+"\x{06}\x{00}\x{00}\x{00}".                          # "BINARY" length
+"\x{00}".                                            # binary subtype - generic
+"BINARY".                                            # "BINARY"
 "\x{00}"                                             # document end
---- error_code: 200
 --- timeout: 10
 
 
@@ -242,16 +255,65 @@ GET /mongo
 --- config
     location /mongo {
         mongo_pass   database;
-        mongo_query  insert ngx_test.system.users "{\"user\": \"ngx_test\", \"pwd\": \"60123dca1c264a62baf497eb485982b2\"}";
+        mongo_query  insert ngx_test.system.users $request_body;
     }
---- request
-GET /mongo
+--- request eval
+"POST /mongo\r\n".
+"\x{53}\x{00}\x{00}\x{00}".                          # document length
+"\x{07}".                                            # object id
+"_id\x{00}".                                         # "_id"
+"0123456789AB".                                      # 0123456789AB
+"\x{02}".                                            # string
+"user\x{00}".                                        # "user"
+"\x{09}\x{00}\x{00}\x{00}".                          # "ngx_test" length
+"ngx_test\x{00}".                                    # "ngx_test"
+"\x{02}".                                            # string
+"pwd\x{00}".                                         # "pwd"
+"\x{21}\x{00}\x{00}\x{00}".                          # "60123dca1c264a62baf497eb485982b2" length
+"60123dca1c264a62baf497eb485982b2\x{00}".            # "60123dca1c264a62baf497eb485982b2"
+"\x{00}"                                             # document end
+--- more_headers
+Content-Type: application/x-bson
 --- error_code: 204
 --- timeout: 10
 
 
 
-=== TEST 12: verify user - correct password
+=== TEST 12: verify user - database object
+--- http_config eval: $::http_config
+--- config
+    add_header  X-Mongo-Namespace  $mongo_request_namespace;
+    add_header  X-Mongo-Query      $mongo_request_query;
+
+    location /mongo {
+        mongo_pass   database;
+        mongo_query  select ngx_test.system.users "{}";
+    }
+--- request
+GET /mongo
+--- error_code: 200
+--- response_headers
+X-Mongo-Namespace: ngx_test.system.users
+X-Mongo-Query: {}
+--- response_body eval
+"\x{53}\x{00}\x{00}\x{00}".                          # document length
+"\x{07}".                                            # object id
+"_id\x{00}".                                         # "_id"
+"0123456789AB".                                      # 0123456789AB
+"\x{02}".                                            # string
+"user\x{00}".                                        # "user"
+"\x{09}\x{00}\x{00}\x{00}".                          # "ngx_test" length
+"ngx_test\x{00}".                                    # "ngx_test"
+"\x{02}".                                            # string
+"pwd\x{00}".                                         # "pwd"
+"\x{21}\x{00}\x{00}\x{00}".                          # "60123dca1c264a62baf497eb485982b2" length
+"60123dca1c264a62baf497eb485982b2\x{00}".            # "60123dca1c264a62baf497eb485982b2"
+"\x{00}"                                             # document end
+--- timeout: 10
+
+
+
+=== TEST 13: verify user - correct password
 --- http_config eval: $::http_config
 --- config
     add_header  X-Mongo-Namespace  $mongo_request_namespace;
@@ -279,7 +341,7 @@ X-Mongo-Query: {"hello": "world"}
 
 
 
-=== TEST 13: verify user - wrong password
+=== TEST 14: verify user - wrong password
 --- http_config eval: $::http_config
 --- config
     location /mongo {
