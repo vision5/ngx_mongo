@@ -1054,10 +1054,11 @@ ngx_http_mongo_process_wire(ngx_http_request_t *r, int32_t request_id,
 static ngx_int_t
 ngx_http_mongo_process_logout(ngx_http_request_t *r)
 {
-    ngx_http_mongo_ctx_t  *mctx;
-    ngx_http_upstream_t   *u;
-    ngx_buf_t             *b;
-    ngx_int_t              rc;
+    ngx_http_mongo_ctx_t         *mctx;
+    ngx_http_mongo_predefined_t  *e;
+    ngx_http_upstream_t          *u;
+    ngx_buf_t                    *b;
+    ngx_int_t                     rc;
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "mongo: process logout");
@@ -1066,26 +1067,23 @@ ngx_http_mongo_process_logout(ngx_http_request_t *r)
 
     b = &r->upstream->buffer;
 
-    rc = ngx_http_mongo_process_wire(r, mctx->request_id, 1,
-             ngx_http_mongo_predefined[NGX_HTTP_MONGO_OK].len);
+    e = &ngx_http_mongo_predefined[NGX_HTTP_MONGO_OK];
 
+    rc = ngx_http_mongo_process_wire(r, mctx->request_id, 1, e->len);
     if (rc != NGX_OK) {
         return rc;
     }
 
     b->pos += NGX_HTTP_MONGO_RES_HEADER_SIZE;
 
-    if (ngx_memcmp(b->pos,
-                   ngx_http_mongo_predefined[NGX_HTTP_MONGO_OK].bson->pos,
-                   ngx_http_mongo_predefined[NGX_HTTP_MONGO_OK].len))
-    {
+    if (ngx_memcmp(b->pos, e->bson->pos, e->len)) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                       "mongo: received wrong BSON"
                       " (doesn't match \"logout\" response)");
         return NGX_ERROR;
     }
 
-    b->pos += ngx_http_mongo_predefined[NGX_HTTP_MONGO_OK].len;
+    b->pos += e->len;
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "mongo: logged out");
@@ -1131,7 +1129,7 @@ ngx_http_mongo_process_nonce(ngx_http_request_t *r)
 
     if ((int32_t) b->pos[0] < 28
         || b->pos[4] != NGX_HTTP_MONGO_BSON_STRING
-        || ngx_strcmp("nonce", &b->pos[5]))
+        || ngx_strcmp("nonce", b->pos + 5))
     {
         goto invalid;
     }
@@ -1147,12 +1145,13 @@ ngx_http_mongo_process_nonce(ngx_http_request_t *r)
         return NGX_ERROR;
     }
 
-    ngx_memcpy(mctx->nonce.data, &b->pos[15], mctx->nonce.len);
+    ngx_memcpy(mctx->nonce.data, b->pos + 15, mctx->nonce.len);
 
     e = &ngx_http_mongo_predefined[NGX_HTTP_MONGO_OK];
 
-    if (ngx_memcmp(&b->pos[15 + mctx->nonce.len],
-                   e->bson->pos + sizeof(int32_t), e->len - sizeof(int32_t)))
+    if (ngx_memcmp(b->pos + 15 + mctx->nonce.len,
+                   e->bson->pos + sizeof(int32_t),
+                   e->len - sizeof(int32_t)))
     {
         goto invalid;
     }
