@@ -9,7 +9,9 @@ Status
 This module is considered stable and it's compatible with the following nginx
 releases:
 
-- 1.1.4+ (tested with 1.1.4 to 1.1.18).
+- 1.1.4+ (tested with 1.1.4 to 1.1.19),
+- 1.2.x  (tested with 1.2.0 to 1.2.2),
+- 1.3.x  (tested with 1.3.0 to 1.3.2).
 
 
 Configuration directives
