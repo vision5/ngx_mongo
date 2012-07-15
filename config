@@ -61,6 +61,18 @@ else
     . auto/feature
 
     if [ $ngx_found = no ]; then
+        # Red Hat (64-bit)
+        ngx_feature="yajl library (64-bit)"
+        ngx_feature_path=
+        if [ $NGX_RPATH = YES ]; then
+            ngx_feature_libs="-R/usr/lib64 -L/usr/lib64 -lyajl"
+        else
+            ngx_feature_libs="-L/usr/lib64 -lyajl"
+        fi
+        . auto/feature
+    fi
+
+    if [ $ngx_found = no ]; then
         # FreeBSD, OpenBSD
         ngx_feature="yajl library in /usr/local/"
         ngx_feature_path="/usr/local/include"
@@ -68,6 +80,18 @@ else
             ngx_feature_libs="-R/usr/local/lib -L/usr/local/lib -lyajl"
         else
             ngx_feature_libs="-L/usr/local/lib -lyajl"
+        fi
+        . auto/feature
+    fi
+
+    if [ $ngx_found = no ]; then
+        # Red Hat (64-bit)
+        ngx_feature="yajl library in /usr/local/ (64-bit)"
+        ngx_feature_path="/usr/local/include"
+        if [ $NGX_RPATH = YES ]; then
+            ngx_feature_libs="-R/usr/local/lib64 -L/usr/local/lib64 -lyajl"
+        else
+            ngx_feature_libs="-L/usr/local/lib64 -lyajl"
         fi
         . auto/feature
     fi
