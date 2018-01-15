@@ -13,6 +13,7 @@ releases:
 - 1.2.x  (tested with 1.2.0 to 1.2.2),
 - 1.3.x  (tested with 1.3.0 to 1.3.2).
 
+**NOTE** : At this time we are not actively developing this module, and don't plan on returning to it.
 
 Configuration directives
 ========================
