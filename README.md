@@ -4,24 +4,6 @@ About
 with `MongoDB` database.
 
 
-New Repo Location
-=================
-
-The new location for this repo is :
-
-https://github.com/simplresty/ngx_mongo
-
-This old location was :
-
-https://github.com/simpl/ngx_mongo
-
-This is one of a number of Nginx modules that have been moved from 'simpl' to 'simplresty'. 
-See [below](#see-also) for more information on how these organizations are now used.
-
-To prevent any problems with updates, all repos that were previously under the 'simpl' user 
-will be forked and synced from the 'simplresty' repo. Sorry for any inconvenience this causes.
-
-
 Status
 ======
 
@@ -275,12 +257,12 @@ License
 See Also
 ========
 
-* **SimplResty** : A web-application framework integrating OpenResty, Couchbase, React 
-and much more (https://github.com/simplresty)
-* **Simpl** : A shell platform that integrates repositories stored on Github, Bitbucket 
-etc., to help facilitate shell-based tasks (https://github.com/simpl)
+[SimplResty](https://github.com/simplresty) : A web-application framework integrating OpenResty, Couchbase, React
+  and much more
+
+[Simpl](https://github.com/simpl) : A shell platform that integrates repositories stored on Github, Bitbucket
+  etc., to help facilitate shell-based tasks
 
 - [ngx_postgres](http://github.com/FRiCKLE/ngx_postgres),
 - [ngx_drizzle](http://github.com/chaoslawful/drizzle-nginx-module),
 - [ngx_rds_json](http://github.com/agentzh/rds-json-nginx-module).
-
