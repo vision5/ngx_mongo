@@ -257,12 +257,6 @@ License
 See Also
 ========
 
-[SimplResty](https://github.com/simplresty) : A web-application framework integrating OpenResty, Couchbase, React
-  and much more
-
-[Simpl](https://github.com/simpl) : A shell platform that integrates repositories stored on Github, Bitbucket
-  etc., to help facilitate shell-based tasks
-
 - [ngx_postgres](http://github.com/FRiCKLE/ngx_postgres),
 - [ngx_drizzle](http://github.com/chaoslawful/drizzle-nginx-module),
 - [ngx_rds_json](http://github.com/agentzh/rds-json-nginx-module).
